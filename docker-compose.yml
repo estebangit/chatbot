@@ -1,0 +1,96 @@
+
+version: '3'
+
+services:
+
+  mongo:
+    image: mongo:latest
+    volumes:
+      - ./data/runtime/db:/data/db
+      - ./data/dump:/dump
+    # command: mongod --smallfiles
+    # wiredTiger  mmapv1
+    command: mongod --smallfiles --storageEngine=wiredTiger
+    # command: mongod --smallfiles --replSet rocketchat --storageEngine=wiredTiger
+    # command: mongod --smallfiles --oplogSize 128 --replSet rs0 --storageEngine=wiredTiger
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    # deploy:
+    #   restart_policy:
+    #     condition: on-failure
+    #     delay: 5s
+    #     max_attempts: 3
+    #     window: 120s
+
+  # this container's job is just run the command to initialize the replica set.
+  # it will run the command and remove himself (it will not stay running)
+  # mongo-init-replica:
+  #   image: mongo:latest
+  #   command: 'mongo mongo/rocketchat --eval "rs.initiate({ _id: ''rocketchat'', members: [ { _id: 0, host: ''127.0.0.1:27017'' } ]})"'
+  #   # command: 'mongo db/rocketchat --eval "rs.initiate({ _id: ''rs0'', members: [ { _id: 0, host: ''localhost:27017'' } ]})"'
+  #   depends_on:
+  #     - mongo
+        
+  # user toto
+  # email 5hc05@vmani.com
+  # pass password
+  rocketchat:
+    image: rocketchat/rocket.chat:latest
+    environment:
+      - MONGO_URL=mongodb://mongo:27017/rocketchat
+      # - MONGO_URL=mongodb://mongo:27017/rocketchat?replicaSet=rocketchat
+      # - MONGO_URL=mongodb://db:27017/rocketchat
+      # - MONGO_OPLOG_URL=mongodb://mongo:27017/local
+      - ROOT_URL=http://localhost:3000
+      # - Accounts_UseDNSDomainCheck=True
+      - MAIL_URL=smtp://smtp.email
+    # links:
+    #   - db:db
+    depends_on:
+      - mongo
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    volumes:
+      - ./uploads:/app/uploads
+    # deploy:
+    #   restart_policy:
+    #     condition: on-failure
+    #     delay: 5s
+    #     max_attempts: 3
+    #     window: 120s
+
+  # waheko@duck2.club
+  # hubot
+  # password
+  hubot:
+    image: rocketchat/hubot-rocketchat:latest
+    environment:
+      # - MONGODB_URL=mongodb://mongo:27017/hubot
+      - ROCKETCHAT_URL=http://localhost:3000
+      - ROCKETCHAT_ROOM=''
+      - BOT_NAME=hubot
+      - ROCKETCHAT_USER=hubot
+      - ROCKETCHAT_PASSWORD=password
+      - ROCKETCHAT_AUTH=password
+      - HUBOT_NAME=hubot
+      - HUBOT_ADAPTER=rocketchat
+      - HUBOT_HTTPD=true
+      - LISTEN_ON_ALL_PUBLIC=true
+      - EXTERNAL_SCRIPTS=hubot-help,hubot-seen,hubot-links,hubot-pugme,hubot-greetings,hubot-json-rest,hubot-diagnostics
+    links:
+      - rocketchat:rocketchat
+    # this is used to expose the hubot port for notifications on the host on port 3001, e.g. for hubot-jenkins-notifier
+    ports:
+      - 3001:8081
+    restart: unless-stopped
+    volumes:
+      - ./scripts:/home/hubot/scripts
+    # deploy:
+    #   restart_policy:
+    #     condition: on-failure
+    #     delay: 5s
+    #     max_attempts: 3
+    #     window: 120s
+      
